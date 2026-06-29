@@ -6,12 +6,17 @@ bin-release/
 
 # Other files and folders
 .settings/
+.workbuddy/
+dist/
+node_modules/
 
 # Executables
 *.swf
 *.air
 *.ipa
 *.apk
+
+package-lock.json
 
 # Project files, i.e. `.project`, `.actionScriptProperties` and `.flexProperties`
 # should NOT be excluded as they contain compiler settings and other important
