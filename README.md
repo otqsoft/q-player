@@ -11,7 +11,7 @@
 	</p>
 	<p>&nbsp;</p>
 </div>
-> 一款轻量、高颜值的网页音视频播放器，基于 Vue 3 + TypeScript 构建。
+一款轻量、高颜值的网页音视频播放器，基于 Vue 3 + TypeScript 构建。
 
 ---
 
@@ -26,7 +26,7 @@
 - ⌨️ **完整键盘支持** — 所有交互均可键盘操作，符合 WCAG AA 无障碍标准
 - 📱 **响应式布局** — 移动端自动切换为纵向布局
 
-
+![](\public\app.png)
 
 ## 🚀 快速开始
 
@@ -91,7 +91,7 @@ q-player/
 └── package.json
 ```
 
----
+
 
 ## 🎮 使用方式
 
@@ -130,7 +130,7 @@ interface Track {
 }
 ```
 
----
+
 
 ## ⌨️ 键盘快捷键
 
@@ -141,7 +141,7 @@ interface Track {
 | `Enter` | 选中播放列表中的曲目 |
 | 进度条 `←` / `→` | 快退/快进 5 秒 |
 
----
+
 
 ## 🎨 设计系统
 
@@ -162,7 +162,7 @@ interface Track {
 - **标题**: DM Serif Display (斜体)
 - **UI 文本**: DM Sans
 
----
+
 
 ## ♿ 无障碍
 
@@ -171,7 +171,7 @@ interface Track {
 - `focus-visible` 焦点环，满足 WCAG 2.1 AA 对比度要求
 - 遵守 `prefers-reduced-motion` 媒体查询，自动关闭动效
 
----
+
 
 ## 🛠️ 技术栈
 
@@ -181,7 +181,7 @@ interface Track {
 | [TypeScript](https://www.typescriptlang.org/) | ^5.6 | 类型安全 |
 | [Vite](https://vitejs.dev/) | ^6.0 | 构建工具 |
 
----
+
 
 ## 📄 许可证
 
