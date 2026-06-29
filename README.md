@@ -26,7 +26,9 @@
 - ⌨️ **完整键盘支持** — 所有交互均可键盘操作，符合 WCAG AA 无障碍标准
 - 📱 **响应式布局** — 移动端自动切换为纵向布局
 
-![](\public\app.png)
+<div align="center">
+	<img src="public/app.png">
+</div>
 
 ## 🚀 快速开始
 
