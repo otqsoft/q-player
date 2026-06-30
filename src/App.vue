@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, computed, watch } from 'vue'
+import { ref, onMounted, onUnmounted, computed, watch } from 'vue'
 import { usePlayer } from './composables/usePlayer'
 import { formatTime } from './utils/format'
 import { getTrackType } from './types'
@@ -34,10 +34,38 @@ const {
 
 const showPlaylist = ref(true)
 const mediaRef = ref<HTMLVideoElement>()
+const appRef = ref<HTMLElement>()
+const isFullscreen = ref(false)
 
 const isVideo = computed(() =>
   currentTrack.value ? getTrackType(currentTrack.value) === 'video' : false
 )
+
+// ── 全屏 ──
+function onFullscreenChange() {
+  isFullscreen.value = !!document.fullscreenElement
+}
+
+async function toggleFullscreen() {
+  if (!appRef.value) return
+  try {
+    if (!document.fullscreenElement) {
+      await appRef.value.requestFullscreen()
+    } else {
+      await document.exitFullscreen()
+    }
+  } catch {
+    // 浏览器不支持时静默
+  }
+}
+
+onMounted(() => {
+  document.addEventListener('fullscreenchange', onFullscreenChange)
+})
+
+onUnmounted(() => {
+  document.removeEventListener('fullscreenchange', onFullscreenChange)
+})
 
 watch(mediaRef, (el) => {
   if (el) bindMedia(el)
@@ -48,12 +76,12 @@ onMounted(() => {
 })
 
 const demoTracks: Track[] = [
-  { id: 1, title: '晨光微曦', artist: '自然之声', src: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3' },
-  { id: 2, title: '星河漫步', artist: '夜空旋律', src: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3' },
-  { id: 3, title: '海风轻语', artist: '蔚蓝乐章', src: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3' },
-  { id: 4, title: '山林回响', artist: '自然之声', src: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-4.mp3' },
-  { id: 5, title: '月光奏鸣', artist: '夜空旋律', src: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-5.mp3' },
-  { id: 6, title: '自然风光', artist: '视频示例', type: 'video', src: 'https://www.w3schools.com/html/mov_bbb.mp4' },
+  { id: 1, title: '过火', artist: '经典老歌', src: 'http://music.163.com/song/media/outer/url?id=423406145.mp3' },
+  { id: 2, title: '黄昏', artist: '经典老歌', src: 'http://music.163.com/song/media/outer/url?id=5255640.mp3' },
+  { id: 3, title: '同桌的你', artist: '经典老歌', src: 'http://music.163.com/song/media/outer/url?id=28387594.mp3' },
+  { id: 4, title: '挪威的森林', artist: '经典老歌', src: 'http://music.163.com/song/media/outer/url?id=5255631.mp3' },
+  { id: 5, title: '倩女幽魂', artist: '经典老歌', src: 'http://music.163.com/song/media/outer/url?id=188175.mp3' },
+  { id: 6, title: '建党100周年庆', artist: '视频示例', type: 'video', src: 'http://www.otqsoft.com/public/1.mp4' },
 ]
 
 onMounted(() => {
@@ -62,7 +90,13 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="player-app">
+  <div class="player-app"
+    :class="{
+      'is-fullscreen': isFullscreen,
+      'fs-video': isFullscreen && isVideo,
+      'fs-audio': isFullscreen && !isVideo,
+    }"
+    ref="appRef">
     <!-- 背景装饰层 -->
     <div class="bg-orb bg-orb--1" aria-hidden="true"></div>
     <div class="bg-orb bg-orb--2" aria-hidden="true"></div>
@@ -89,16 +123,52 @@ onMounted(() => {
           </div>
           <!-- 播放状态光晕 -->
           <div v-if="isPlaying && !isVideo" class="artwork-glow" aria-hidden="true"></div>
+
+          <!-- 全屏浮动控制栏 -->
+          <div v-if="isVideo && isFullscreen" class="fs-overlay">
+            <div class="fs-controls">
+              <div class="fs-progress-wrap">
+                <ProgressBar
+                  :current-time="currentTime"
+                  :duration="duration"
+                  @seek="seek"
+                />
+              </div>
+              <div class="fs-bar">
+                <div class="fs-left">
+                  <span class="fs-time">{{ formatTime(currentTime) }} / {{ formatTime(duration) }}</span>
+                  <span class="fs-title">{{ currentTrack?.title }}</span>
+                </div>
+                <div class="fs-actions">
+                  <button class="fs-btn" @click="togglePlay" :aria-label="isPlaying ? '暂停' : '播放'">
+                    <svg v-if="!isPlaying" viewBox="0 0 24 24" width="20" height="20"><path d="M8 5v14l11-7z" fill="currentColor"/></svg>
+                    <svg v-else viewBox="0 0 24 24" width="20" height="20"><rect x="6" y="4" width="4" height="16" fill="currentColor"/><rect x="14" y="4" width="4" height="16" fill="currentColor"/></svg>
+                  </button>
+                  <VolumeControl
+                    :volume="volume"
+                    :muted="isMuted"
+                    @set-volume="setVolume"
+                    @toggle-mute="toggleMute"
+                  />
+                  <button class="fs-btn fs-btn--exit" @click="toggleFullscreen" aria-label="退出全屏">
+                    <svg viewBox="0 0 24 24" width="18" height="18" fill="none">
+                      <path d="M8 3v3a2 2 0 0 1-2 2H3m18 0h-3a2 2 0 0 1-2-2V3m0 18v-3a2 2 0 0 1 2-2h3M3 16h3a2 2 0 0 1 2 2v3" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
 
         <!-- 曲目信息 -->
-        <div class="track-meta">
+        <div v-if="!(isFullscreen && isVideo)" class="track-meta">
           <h1 class="track-name">{{ currentTrack?.title ?? '选择一首曲目' }}</h1>
           <p class="track-by">{{ currentTrack?.artist ?? '——' }}</p>
         </div>
 
         <!-- 进度 -->
-        <div class="progress-wrap">
+        <div v-if="!(isFullscreen && isVideo)" class="progress-wrap">
           <ProgressBar
             :current-time="currentTime"
             :duration="duration"
@@ -111,6 +181,7 @@ onMounted(() => {
         </div>
 
         <!-- 主控区 -->
+        <div v-if="!(isFullscreen && isVideo)" class="player-controls">
         <PlayerControls
           :is-playing="isPlaying"
           :play-mode="playMode"
@@ -119,6 +190,7 @@ onMounted(() => {
           @prev="prev"
           @switch-mode="switchPlayMode"
         />
+        </div>
 
         <!-- 底部工具 -->
         <div class="toolbar">
@@ -137,6 +209,21 @@ onMounted(() => {
           >
             <svg viewBox="0 0 24 24" width="17" height="17" fill="none">
               <path d="M4 6h16M4 12h10M4 18h10" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+            </svg>
+          </button>
+          <button
+            class="icon-btn fullscreen-btn"
+            @click="toggleFullscreen"
+            :title="isFullscreen ? '退出全屏' : '全屏播放'"
+            :aria-label="isFullscreen ? '退出全屏' : '全屏播放'"
+          >
+            <!-- 进入全屏图标 -->
+            <svg v-if="!isFullscreen" viewBox="0 0 24 24" width="17" height="17" fill="none">
+              <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            <!-- 退出全屏图标 -->
+            <svg v-else viewBox="0 0 24 24" width="17" height="17" fill="none">
+              <path d="M8 3v3a2 2 0 0 1-2 2H3m18 0h-3a2 2 0 0 1-2-2V3m0 18v-3a2 2 0 0 1 2-2h3M3 16h3a2 2 0 0 1 2 2v3" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
             </svg>
           </button>
         </div>
@@ -302,7 +389,7 @@ body {
   display: flex;
   gap: 0;
   width: 100%;
-  max-width: 780px;
+  max-width: 600px;
   background: var(--surface-1);
   border-radius: 20px;
   border: 1px solid var(--border);
@@ -317,7 +404,7 @@ body {
 
 /* 收起列表时壳体收缩至左侧宽度 */
 .player-shell.list-collapsed {
-  max-width: 340px;
+  max-width: 320px;
 }
 
 /* 顶部金色细线 */
@@ -359,12 +446,22 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
+  cursor: default;
+  transition: transform 0.4s var(--ease-out-quart);
+}
+
+.artwork-wrap:hover {
+  transform: scale(1.04);
 }
 
 .artwork-wrap.is-video {
   width: 100%;
   height: auto;
   aspect-ratio: 16/9;
+}
+
+.artwork-wrap.is-video:hover {
+  transform: none;
 }
 
 .video-el {
@@ -383,7 +480,7 @@ body {
   overflow: hidden;
 }
 
-/* 黑胶唱片风格封面 */
+/* ── 黑胶唱片 ─────────────────────────────── */
 .artwork-disc {
   width: 190px;
   height: 190px;
@@ -392,50 +489,97 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: transform 0.3s var(--ease-out-quart);
+  filter: drop-shadow(0 8px 32px oklch(8% 0.01 50 / 0.55))
+          drop-shadow(0 2px 6px oklch(8% 0.01 50 / 0.35));
+  transition: filter 0.4s var(--ease-out-quart);
+}
+
+.artwork-wrap:hover .artwork-disc {
+  filter: drop-shadow(0 12px 40px oklch(8% 0.01 50 / 0.65))
+          drop-shadow(0 4px 10px oklch(8% 0.01 50 / 0.4));
 }
 
 .artwork-disc.spinning {
-  animation: disc-spin 10s linear infinite;
+  animation: disc-spin 12s linear infinite;
+}
+
+/* 暂停时从旋转平滑过渡到静止 */
+.artwork-disc:not(.spinning) {
+  animation: none;
 }
 
 @keyframes disc-spin {
   to { transform: rotate(360deg); }
 }
 
+/* ── 唱片纹理圈 ─────────────────────────────── */
 .disc-ring {
   position: absolute;
   border-radius: 50%;
-  border: 1px solid;
 }
 
+/* 外圈 — 黑胶纹路 + 边缘 */
 .disc-ring--outer {
   inset: 0;
-  background: radial-gradient(circle, var(--surface-2) 30%, var(--surface-0) 100%);
-  border-color: var(--border);
-  box-shadow: inset 0 0 40px oklch(8% 0.01 50 / 0.6);
+  border: 1px solid var(--border);
+  background:
+    repeating-radial-gradient(
+      circle at center,
+      oklch(17% 0.014 50) 0px,
+      oklch(18% 0.014 50) 1.5px,
+      oklch(17.3% 0.014 50) 3px,
+      oklch(17.8% 0.014 50) 4.5px
+    );
+  box-shadow: inset 0 0 50px oklch(6% 0.01 50 / 0.55);
 }
 
+/* 中圈 — 槽线引导环 */
 .disc-ring--mid {
-  inset: 20px;
-  border-color: oklch(28% 0.025 55);
+  inset: 22px;
+  border: 1px solid oklch(28% 0.025 55 / 0.5);
   background: transparent;
+  box-shadow: inset 0 0 6px oklch(8% 0.01 50 / 0.2);
 }
 
+/* ── 唱片表面光泽反射 ─────────────────────────────── */
+.artwork-disc::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: conic-gradient(
+    from 315deg,
+    transparent 0deg,
+    oklch(100% 0 0 / 0.04) 10deg,
+    oklch(100% 0 0 / 0.01) 25deg,
+    transparent 50deg,
+    transparent 180deg,
+    oklch(100% 0 0 / 0.025) 210deg,
+    oklch(100% 0 0 / 0.005) 230deg,
+    transparent 270deg,
+    transparent 360deg
+  );
+  pointer-events: none;
+  z-index: 2;
+}
+
+/* ── 中心标签 ─────────────────────────────── */
 .disc-center {
-  width: 72px;
-  height: 72px;
+  width: 84px;
+  height: 84px;
   border-radius: 50%;
   overflow: hidden;
   border: 2px solid var(--gold-dim);
   box-shadow:
-    0 0 0 6px var(--surface-2),
-    0 0 0 8px oklch(30% 0.025 55),
-    0 0 20px var(--gold-glow);
-  z-index: 1;
+    0 0 0 5px var(--surface-2),
+    0 0 0 6px oklch(25% 0.02 55 / 0.55),
+    0 0 0 8px oklch(30% 0.025 55 / 0.3),
+    0 0 24px var(--gold-glow);
+  z-index: 3;
   position: relative;
   background: var(--surface-2);
   flex-shrink: 0;
+  transition: box-shadow 0.4s var(--ease-out-quart);
 }
 
 .disc-center img {
@@ -445,19 +589,25 @@ body {
   display: block;
 }
 
-/* 播放光晕 */
+/* ── 播放光晕环 ─────────────────────────────── */
 .artwork-glow {
   position: absolute;
-  inset: -16px;
+  inset: -20px;
   border-radius: 50%;
-  background: radial-gradient(circle, var(--gold-trace) 0%, transparent 70%);
-  animation: glow-pulse 2.4s ease-in-out infinite;
+  background: radial-gradient(
+    circle,
+    oklch(72% 0.16 68 / 0.18) 0%,
+    oklch(65% 0.14 68 / 0.06) 35%,
+    transparent 70%
+  );
+  animation: glow-breathe 3s ease-in-out infinite;
   pointer-events: none;
+  z-index: 0;
 }
 
-@keyframes glow-pulse {
-  0%, 100% { opacity: 0.5; transform: scale(1); }
-  50%       { opacity: 1;   transform: scale(1.05); }
+@keyframes glow-breathe {
+  0%, 100% { opacity: 0.35; transform: scale(0.96); }
+  50%       { opacity: 0.75; transform: scale(1.03); }
 }
 
 /* ── 曲目信息 ─────────────────────────────── */
@@ -517,7 +667,7 @@ body {
 
 /* ── 右侧播放列表 ─────────────────────────────── */
 .player-right {
-  flex: 1;
+  flex: 0 0 260px;
   min-width: 0;
   overflow: hidden;
   background: var(--surface-0);
@@ -583,6 +733,248 @@ body {
   color: var(--text-mid);
 }
 
+/* ── 全屏模式 ─────────────────────────────── */
+.player-app.is-fullscreen {
+  padding: 0;
+  background: #000 !important;
+}
+
+.player-app.is-fullscreen .bg-orb,
+.player-app.is-fullscreen .bg-grain,
+.player-app.is-fullscreen .player-footer {
+  display: none;
+}
+
+.player-app.is-fullscreen .player-shell {
+  max-width: none;
+  width: 100%;
+  height: 100vh;
+  border: none;
+  border-radius: 0;
+  background: #000;
+  box-shadow: none;
+  overflow: visible;
+}
+
+.player-app.is-fullscreen .player-shell::before {
+  display: none;
+}
+
+.player-app.is-fullscreen .player-left {
+  flex: 1;
+  border-right: none !important;
+  padding: 0;
+  justify-content: center;
+  gap: 0;
+  overflow: hidden;
+}
+
+.player-app.is-fullscreen .artwork-wrap {
+  width: 100%;
+  height: 100%;
+  aspect-ratio: auto;
+}
+
+/* ── 视频全屏 ─────────────────────────────── */
+.player-app.fs-video .toolbar,
+.player-app.fs-video .player-right,
+.player-app.fs-video .player-shell::before {
+  display: none;
+}
+
+.player-app.fs-video .artwork-wrap.is-video {
+  width: 100%;
+  height: 100%;
+}
+
+.player-app.fs-video .video-el {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  border-radius: 0;
+  display: block !important;
+}
+
+.player-app.fs-video .video-el.hidden {
+  width: 100% !important;
+  height: 100% !important;
+  position: relative;
+  pointer-events: auto;
+  overflow: visible;
+}
+
+/* ── 音频全屏 ─────────────────────────────── */
+.player-app.fs-audio {
+  background: var(--surface-0) !important;
+}
+
+/* 收起列表：卡片收窄至左侧内容宽度 */
+.player-app.fs-audio .player-shell.list-collapsed {
+  max-width: 380px;
+  width: calc(100vw - 48px);
+  height: auto;
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  background: var(--surface-1);
+  box-shadow:
+    0 0 0 1px oklch(28% 0.02 50 / 0.5),
+    0 24px 80px oklch(8% 0.01 50 / 0.7);
+}
+
+/* 收起时左侧撑满壳体 */
+.player-app.fs-audio .player-shell.list-collapsed .player-left {
+  flex: 1;
+}
+
+/* 展开列表 */
+.player-app.fs-audio .player-shell:not(.list-collapsed) {
+  max-width: 600px;
+  width: calc(100vw - 48px);
+  height: auto;
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  background: var(--surface-1);
+  box-shadow:
+    0 0 0 1px oklch(28% 0.02 50 / 0.5),
+    0 24px 80px oklch(8% 0.01 50 / 0.7);
+}
+
+.player-app.fs-audio .player-shell::before {
+  display: block;
+}
+
+.player-app.fs-audio .player-left {
+  flex: none;
+  padding: 40px 36px 32px;
+  gap: 24px;
+}
+
+/* 展开列表时左右列之间加分隔线 */
+.player-app.fs-audio .player-shell:not(.list-collapsed) .player-left {
+  border-right: 1px solid var(--border);
+}
+
+.player-app.fs-audio .artwork-wrap {
+  width: 260px;
+  height: 260px;
+}
+
+.player-app.fs-audio .artwork-disc {
+  width: 260px;
+  height: 260px;
+}
+
+.player-app.fs-audio .disc-center {
+  width: 110px;
+  height: 110px;
+}
+
+.player-app.fs-audio .track-name {
+  font-size: 28px;
+}
+
+.player-app.fs-audio .track-by {
+  font-size: 13px;
+}
+
+.player-app.fs-audio .progress-wrap {
+  width: 100%;
+}
+
+.player-app.fs-audio .toolbar {
+  width: 100%;
+  display: flex;
+}
+
+/* 全屏浮动控制覆盖层 */
+.fs-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 10;
+  pointer-events: none;
+  display: flex;
+  align-items: flex-end;
+}
+
+.fs-controls {
+  pointer-events: auto;
+  width: 100%;
+  padding: 0 40px 20px;
+  background: linear-gradient(to top, oklch(0% 0 0 / 0.65) 0%, transparent 100%);
+}
+
+.fs-progress-wrap {
+  width: 100%;
+  margin-bottom: 8px;
+}
+
+.fs-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.fs-left {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-width: 0;
+  flex: 1;
+}
+
+.fs-time {
+  font-size: 13px;
+  color: oklch(90% 0.01 60);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.fs-title {
+  font-size: 14px;
+  font-weight: 500;
+  color: oklch(95% 0.01 60 / 0.9);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.fs-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.fs-btn {
+  background: oklch(20% 0.01 50 / 0.5);
+  border: 1px solid oklch(40% 0.01 50 / 0.3);
+  color: oklch(93% 0.01 60);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  transition: background 0.15s, border-color 0.15s;
+  line-height: 1;
+}
+
+.fs-btn:hover {
+  background: oklch(30% 0.01 50 / 0.7);
+  border-color: oklch(50% 0.01 50 / 0.4);
+}
+
+.fs-btn:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 2px;
+}
+
+.fs-btn--exit {
+  margin-left: 6px;
+}
+
 /* ── 响应式 ─────────────────────────────── */
 @media (max-width: 640px) {
   .player-app {
@@ -621,8 +1013,10 @@ body {
   .artwork-disc.spinning,
   .artwork-glow,
   .bg-orb--1,
-  .bg-orb--2 {
+  .bg-orb--2,
+  .artwork-wrap {
     animation: none;
+    transition: none;
   }
 }
 </style>
